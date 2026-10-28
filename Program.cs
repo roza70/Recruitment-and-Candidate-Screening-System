@@ -65,6 +65,11 @@ app.MapRazorPages();
 // Seed Identity roles and HR account.
 using (var scope = app.Services.CreateScope())
 {
+    // Ensure the database schema is up-to-date so Identity tables (e.g. AspNetRoles)
+    // exist before we attempt to seed roles/users.
+    var db = scope.ServiceProvider.GetRequiredService<ApplicationDbContext>();
+    await db.Database.MigrateAsync();
+
     await IdentitySeeder.SeedRolesAsync(scope.ServiceProvider);
 }
 
