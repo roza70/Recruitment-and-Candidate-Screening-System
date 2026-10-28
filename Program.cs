@@ -1,3 +1,4 @@
+
 using Microsoft.AspNetCore.HttpOverrides;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.Data.Sqlite;
@@ -9,26 +10,35 @@ using Stripe;
 
 var builder = WebApplication.CreateBuilder(args);
 
-// Resolve SQLite connection string safely to ContentRootPath for IIS / MonsterASP.NET hosting.
+// Resolve SQLite connection string safely to ContentRootPath
+// for IIS / MonsterASP.NET hosting.
 var rawConnectionString = builder.Configuration.GetConnectionString("DefaultConnection")
     ?? "Data Source=RecruitmentAndCandidateScreeningSystem.db";
 
 var sqliteBuilder = new SqliteConnectionStringBuilder(rawConnectionString);
-if (!string.IsNullOrWhiteSpace(sqliteBuilder.DataSource) && !Path.IsPathRooted(sqliteBuilder.DataSource))
+
+if (!string.IsNullOrWhiteSpace(sqliteBuilder.DataSource) &&
+    !Path.IsPathRooted(sqliteBuilder.DataSource))
 {
-    sqliteBuilder.DataSource = Path.Combine(builder.Environment.ContentRootPath, sqliteBuilder.DataSource);
+    sqliteBuilder.DataSource = Path.Combine(
+        builder.Environment.ContentRootPath,
+        sqliteBuilder.DataSource);
 }
+
 if (sqliteBuilder.DefaultTimeout < 30)
 {
     sqliteBuilder.DefaultTimeout = 30;
 }
+
 string resolvedConnectionString = sqliteBuilder.ToString();
 
-// Ensure the folder containing the SQLite database exists
+// Ensure the folder containing the SQLite database exists.
 if (!string.IsNullOrWhiteSpace(sqliteBuilder.DataSource))
 {
     var dbDirectory = Path.GetDirectoryName(sqliteBuilder.DataSource);
-    if (!string.IsNullOrWhiteSpace(dbDirectory) && !Directory.Exists(dbDirectory))
+
+    if (!string.IsNullOrWhiteSpace(dbDirectory) &&
+        !Directory.Exists(dbDirectory))
     {
         Directory.CreateDirectory(dbDirectory);
     }
@@ -40,6 +50,7 @@ builder.Services.AddDbContext<ApplicationDbContext>(options =>
 
 // Configure Stripe (safe fallback when key is absent in demo mode).
 var stripeKey = builder.Configuration["Stripe:SecretKey"];
+
 if (!string.IsNullOrWhiteSpace(stripeKey))
 {
     StripeConfiguration.ApiKey = stripeKey;
@@ -48,17 +59,20 @@ if (!string.IsNullOrWhiteSpace(stripeKey))
 // Configure Forwarded Headers for MonsterASP.NET / IIS reverse proxy.
 builder.Services.Configure<ForwardedHeadersOptions>(options =>
 {
-    options.ForwardedHeaders = ForwardedHeaders.XForwardedFor | ForwardedHeaders.XForwardedProto;
+    options.ForwardedHeaders =
+        ForwardedHeaders.XForwardedFor |
+        ForwardedHeaders.XForwardedProto;
+
     options.KnownIPNetworks.Clear();
     options.KnownProxies.Clear();
 });
 
-// Add Stripe payment service.
+// Register application services.
 builder.Services.AddScoped<StripePaymentService>();
-// Add Gemini 
 builder.Services.AddScoped<GeminiService>();
 builder.Services.AddScoped<AIMatchingService>();
 builder.Services.AddScoped<CVTextExtractionService>();
+
 // Add ASP.NET Core Identity.
 builder.Services
     .AddDefaultIdentity<ApplicationUser>(options =>
@@ -77,7 +91,10 @@ builder.Services.AddRazorPages();
 var app = builder.Build();
 
 // Ensure secure upload folders exist.
-var secureUploadsRoot = Path.Combine(app.Environment.ContentRootPath, "SecureUploads");
+var secureUploadsRoot = Path.Combine(
+    app.Environment.ContentRootPath,
+    "SecureUploads");
+
 Directory.CreateDirectory(Path.Combine(secureUploadsRoot, "Photos"));
 Directory.CreateDirectory(Path.Combine(secureUploadsRoot, "Signatures"));
 Directory.CreateDirectory(Path.Combine(secureUploadsRoot, "CVs"));
@@ -108,7 +125,7 @@ app.MapControllerRoute(
 // Map ASP.NET Core Identity Razor Pages.
 app.MapRazorPages();
 
-// Initialize database schema via migrations and seed Identity roles and accounts.
+// Initialize database schema and seed Identity roles/accounts.
 using (var scope = app.Services.CreateScope())
 {
     var services = scope.ServiceProvider;
@@ -116,19 +133,31 @@ using (var scope = app.Services.CreateScope())
 
     try
     {
-        var dbContext = services.GetRequiredService<ApplicationDbContext>();
+        var dbContext =
+            services.GetRequiredService<ApplicationDbContext>();
 
-        logger.LogInformation("Verifying and applying database migrations...");
+        logger.LogInformation(
+            "Verifying and applying database migrations...");
+
         await dbContext.Database.MigrateAsync();
-        logger.LogInformation("Database migrations verified and applied.");
 
-        logger.LogInformation("Seeding Identity roles and default accounts...");
+        logger.LogInformation(
+            "Database migrations verified and applied.");
+
+        logger.LogInformation(
+            "Seeding Identity roles and default accounts...");
+
         await IdentitySeeder.SeedRolesAsync(services);
-        logger.LogInformation("Identity roles and accounts seeded successfully.");
+
+        logger.LogInformation(
+            "Identity roles and accounts seeded successfully.");
     }
     catch (Exception ex)
     {
-        logger.LogCritical(ex, "A fatal error occurred during database migration or seeding at application startup.");
+        logger.LogCritical(
+            ex,
+            "A fatal error occurred during database migration or seeding at application startup.");
+
         throw;
     }
 }
